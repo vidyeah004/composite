@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CompositeLab — ML Property Predictor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<div class="noise"></div>
+
+<!-- Header -->
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-mark">CF</div>
+      <div>
+        <div class="logo-title">CompositeLab</div>
+        <div class="logo-sub">ML Property Predictor</div>
+      </div>
+    </div>
+    <div class="header-pills">
+      <span class="pill" id="model-status">● Models not loaded</span>
+      <span class="pill pill-dim">CF = 20% fixed</span>
+      <span class="pill pill-dim">BN + AO range 2.5–7.5%</span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- Upload section (shown when no models) -->
+  <section id="upload-section" class="section-card upload-card">
+    <div class="upload-icon">⬆</div>
+    <h2>Upload Datasets to Begin</h2>
+    <p>Upload your three Excel files to train the ML models. This takes about 20 seconds.</p>
+    <div class="upload-grid">
+      <label class="file-drop" id="drop-theory">
+        <input type="file" id="file-theory" accept=".xlsx" hidden>
+        <span class="drop-icon">T</span>
+        <span class="drop-label">Theory Dataset</span>
+        <span class="drop-sub" id="name-theory">Click to upload</span>
+      </label>
+      <label class="file-drop" id="drop-fea">
+        <input type="file" id="file-fea" accept=".xlsx" hidden>
+        <span class="drop-icon">F</span>
+        <span class="drop-label">FEA Dataset</span>
+        <span class="drop-sub" id="name-fea">Click to upload</span>
+      </label>
+      <label class="file-drop" id="drop-exp">
+        <input type="file" id="file-exp" accept=".xlsx" hidden>
+        <span class="drop-icon">E</span>
+        <span class="drop-label">Experimental Dataset</span>
+        <span class="drop-sub" id="name-exp">Click to upload</span>
+      </label>
+    </div>
+    <button class="btn-primary" id="train-btn" disabled onclick="trainModels()">
+      Train Models
+    </button>
+    <div id="train-status" class="train-status"></div>
+  </section>
+
+  <!-- Main app (shown after training) -->
+  <div id="app-section" style="display:none">
+
+    <!-- Mode Tabs -->
+    <div class="mode-tabs">
+      <button class="mode-tab active" id="tab-forward-btn" onclick="switchMode('forward')">
+        <span class="tab-icon">⚗</span> Forward Prediction
+        <span class="tab-sub">Fillers → Properties</span>
+      </button>
+      <button class="mode-tab" id="tab-inverse-btn" onclick="switchMode('inverse')">
+        <span class="tab-icon">🔬</span> Inverse Prediction
+        <span class="tab-sub">Properties → Fillers</span>
+      </button>
+    </div>
+
+    <!-- ══ FORWARD TAB ══ -->
+    <div id="pane-forward">
+
+    <!-- Input + Results row -->
+    <div class="top-row">
+
+      <!-- Inputs -->
+      <section class="section-card input-card">
+        <div class="section-label">Composition Input</div>
+        <div class="filler-row">
+          <div class="filler-fixed">
+            <div class="filler-name">Carbon Fiber</div>
+            <div class="filler-value">20<span class="filler-unit">%</span></div>
+            <div class="filler-tag">Fixed</div>
+          </div>
+        </div>
+        <div class="slider-group">
+          <div class="slider-header">
+            <span class="slider-label">Boron Nitride</span>
+            <span class="slider-val" id="bn-display">5.0%</span>
+          </div>
+          <input type="range" id="bn-slider" min="2.5" max="7.5" step="0.1" value="5.0"
+                 oninput="updateSlider('bn')">
+          <div class="slider-ticks"><span>2.5</span><span>5.0</span><span>7.5</span></div>
+        </div>
+        <div class="slider-group">
+          <div class="slider-header">
+            <span class="slider-label">Aluminium Oxide</span>
+            <span class="slider-val" id="ao-display">5.0%</span>
+          </div>
+          <input type="range" id="ao-slider" min="2.5" max="7.5" step="0.1" value="5.0"
+                 oninput="updateSlider('ao')">
+          <div class="slider-ticks"><span>2.5</span><span>5.0</span><span>7.5</span></div>
+        </div>
+        <button class="btn-primary" onclick="runPrediction()" id="predict-btn">
+          Predict Properties
+        </button>
+      </section>
+
+      <!-- Results -->
+      <section class="section-card results-card">
+        <div class="section-label">Predicted Properties</div>
+        <div class="results-grid" id="results-grid">
+          <div class="result-item" id="res-Tensile">
+            <div class="res-label">Tensile Strength</div>
+            <div class="res-value">—</div>
+            <div class="res-unit">GPa</div>
+            <div class="res-meta"></div>
+          </div>
+          <div class="result-item" id="res-Youngs">
+            <div class="res-label">Young's Modulus</div>
+            <div class="res-value">—</div>
+            <div class="res-unit">GPa</div>
+            <div class="res-meta"></div>
+          </div>
+          <div class="result-item" id="res-Hardness">
+            <div class="res-label">Hardness</div>
+            <div class="res-value">—</div>
+            <div class="res-unit">HV</div>
+            <div class="res-meta"></div>
+          </div>
+          <div class="result-item" id="res-Buckling">
+            <div class="res-label">Buckling</div>
+            <div class="res-value">—</div>
+            <div class="res-unit">N/m</div>
+            <div class="res-meta"></div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Charts row -->
+    <div class="charts-row" id="charts-row" style="display:none">
+      <section class="section-card chart-card">
+        <div class="section-label">Partial Dependence — vs BN%</div>
+        <div class="prop-tabs" id="tabs-bn"></div>
+        <div class="chart-wrap"><canvas id="chart-bn"></canvas></div>
+      </section>
+      <section class="section-card chart-card">
+        <div class="section-label">Partial Dependence — vs AO%</div>
+        <div class="prop-tabs" id="tabs-ao"></div>
+        <div class="chart-wrap"><canvas id="chart-ao"></canvas></div>
+      </section>
+    </div>
+
+    <!-- Chat -->
+    <section class="section-card chat-card">
+      <div class="section-label">AI Materials Assistant <span class="groq-badge">Groq · Llama 3.3 70B</span></div>
+      <div class="chat-messages" id="chat-messages">
+        <div class="msg msg-ai">
+          <div class="msg-bubble">Hello! I'm your materials science assistant. Run a prediction and ask me anything about the results — why certain properties behave the way they do, what the models mean, or how to interpret the R² scores.</div>
+        </div>
+      </div>
+      <div class="chat-input-row">
+        <input type="text" id="chat-input" placeholder="Ask about the prediction, models, or material science..."
+               onkeydown="if(event.key==='Enter') sendChat()">
+        <button class="btn-send" onclick="sendChat()">Send</button>
+      </div>
+      <div class="chat-suggestions" id="chat-suggestions">
+        <button onclick="quickAsk('Why is Tensile R² so low?')">Why is Tensile R² low?</button>
+        <button onclick="quickAsk('Which filler has more influence on Young\'s Modulus?')">Which filler drives Young's Modulus?</button>
+        <button onclick="quickAsk('Explain the GPR uncertainty band')">What does uncertainty mean?</button>
+        <button onclick="quickAsk('How should I interpret these results for my panel?')">How to explain to my panel?</button>
+      </div>
+    </section>
+
+    </div><!-- /#pane-forward -->
+
+    <!-- ══ INVERSE TAB ══ -->
+    <div id="pane-inverse" style="display:none">
+      <div class="inverse-layout">
+
+        <!-- LEFT: Target inputs -->
+        <section class="section-card inverse-input-card">
+          <div class="section-label">Target Properties</div>
+          <p class="inv-hint">Enter your desired material properties. Leave blank to ignore. The optimizer will find the best BN% + Al₂O₃% match.</p>
+
+          <div class="inv-field">
+            <label class="inv-label">Tensile Strength <span class="inv-unit">GPa</span></label>
+            <input class="inv-input" id="inv-tensile" type="number" step="0.001" placeholder="e.g. 0.645">
+            <div class="inv-range">Actual range: 0.619 – 0.673 GPa</div>
+          </div>
+          <div class="inv-field">
+            <label class="inv-label">Young's Modulus <span class="inv-unit">GPa</span></label>
+            <input class="inv-input" id="inv-youngs" type="number" step="0.1" placeholder="e.g. 72.0">
+            <div class="inv-range">Actual range: 52.0 – 90.3 GPa</div>
+          </div>
+          <div class="inv-field">
+            <label class="inv-label">Hardness <span class="inv-unit">HV Vickers</span></label>
+            <input class="inv-input" id="inv-hardness" type="number" step="0.001" placeholder="e.g. 0.965">
+            <div class="inv-range">Actual range: 0.959 – 0.972 HV</div>
+          </div>
+          <div class="inv-field">
+            <label class="inv-label">Buckling Strength <span class="inv-unit">N/m</span></label>
+            <input class="inv-input" id="inv-buckling" type="number" step="1" placeholder="e.g. 850">
+            <div class="inv-range">Actual range: 500 – 1200 N/m</div>
+          </div>
+
+          <button class="btn-primary inv-btn" id="inv-run-btn" onclick="runInverse()">
+            Find Optimal Composition
+          </button>
+          <div id="inv-error" class="inv-error"></div>
+        </section>
+
+        <!-- RIGHT: Result -->
+        <div class="inv-right">
+          <section class="section-card inv-result-card">
+            <div class="section-label">Optimal Composition</div>
+
+            <div id="inv-empty" class="inv-empty">
+              <div class="inv-empty-icon">◎</div>
+              <div>Set target properties and click<br><strong>Find Optimal Composition</strong></div>
+            </div>
+
+            <div id="inv-result" style="display:none">
+              <div class="inv-filler-row">
+                <div class="inv-filler-box">
+                  <div class="inv-filler-label">Boron Nitride</div>
+                  <div class="inv-filler-val" id="res-inv-bn">—</div>
+                  <div class="inv-filler-unit">wt%</div>
+                </div>
+                <div class="inv-plus">+</div>
+                <div class="inv-filler-box">
+                  <div class="inv-filler-label">Al₂O₃</div>
+                  <div class="inv-filler-val" id="res-inv-ao">—</div>
+                  <div class="inv-filler-unit">wt%</div>
+                </div>
+              </div>
+
+              <div class="inv-achieved-title">Achieved vs Target</div>
+              <div class="inv-achieved-grid" id="inv-achieved-grid"></div>
+
+              <div class="inv-total-err">
+                Optimisation residual: <span id="inv-total-err-val">—</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- Error heatmap -->
+          <section class="section-card inv-heatmap-card" id="inv-heatmap-card" style="display:none">
+            <div class="section-label">Composition Error Landscape</div>
+            <canvas id="inv-heatmap"></canvas>
+            <div class="inv-heatmap-legend">
+              <span style="color:var(--accent)">★</span> = optimal point &nbsp;·&nbsp;
+              <span style="color:var(--accent)">dark</span> = low error (better match) &nbsp;·&nbsp; axes: BN% (x) · AO% (y)
+            </div>
+          </section>
+        </div>
+
+      </div>
+    </div><!-- /#pane-inverse -->
+
+  </div><!-- /#app-section -->
+</main>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>
